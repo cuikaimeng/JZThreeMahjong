@@ -114,10 +114,34 @@ Node 服务 (:3000)
 
 | 位置 | 内容 |
 |---|---|
-| `backend/.env` | `PORT=3000`、`PG_*`、`REDIS_*`、`WX_APPID` / `WX_SECRET`（留空走游客登录）、`TOKEN_TTL_DAYS=7` |
-| `frontend/js/net/config.js` | `API_BASE` / `WS_URL` 当前写死 `localhost:3000`，上线需换已备案 https/wss 域名 |
-| `frontend/project.config.json` | AppID、`compileType: game`、`urlCheck: false` |
-| `backend/src/app.js` | 本地调试 CORS：`Allow-Origin: *`，放行 GET/POST/PUT/PATCH/DELETE |
+| `backend/.env.example` | **开发环境**后端模板：`PORT=3000`、本机 `PG_*` / `REDIS_*`、`CORS_ORIGINS=*`、`WX_*` 留空走游客登录 |
+| `deploy/env.production.example` | **生产环境**后端模板：仅本机 PG/Redis + 强密码 + `CORS_ORIGINS` 白名单 |
+| `frontend/js/net/env.js` | **两套前端地址**：DEV `http://localhost:3000` / `ws://localhost:3000/ws`；PROD `https://<PROD_DOMAIN>` / `wss://<PROD_DOMAIN>/ws`。部署时只改 `PROD_DOMAIN` |
+| `frontend/js/net/config.js` | 兼容入口，业务代码仍从这里取 `API_BASE` / `WS_URL` |
+| `frontend/project.config.json` | AppID、`compileType: game`、`urlCheck: false`（仅开发者工具本地联调） |
+| `deploy/` | 服务器一键部署脚本、nginx HTTPS/WSS 模板、生产 `.env` 模板 |
+
+### 两套环境如何切换
+
+前端按运行环境自动选择：微信 `envVersion` 为 `develop` → DEV，`trial` / `release` → PROD；浏览器预览可用 `?env=prod` 强制切换；`frontend/js/net/env.js` 的 `ENV_OVERRIDE` 可手动锁定 `'dev'` / `'prod'`（开发者工具连生产联调时用）。后端靠服务器上的 `backend/.env` 区分，代码无需改动；`app.set('trust proxy', 1)` 与 nginx 的 `X-Real-IP` / `X-Forwarded-For` 保证反代后登录日志仍是真实 IP。
+
+生产部署（服务器是全新环境，脚本负责装 Node / PG / Redis / nginx）：
+
+```bash
+sudo bash deploy/server-setup.sh --db-password '<强密码>' --domain game.example.com
+certbot --nginx -d game.example.com                            # 首次申请证书
+sudo bash deploy/server-setup.sh --domain game.example.com     # 证书就绪后重跑，自动切 HTTPS/WSS
+```
+
+**Node / PostgreSQL / Redis / nginx 已自行装好**时改用 `deploy/deploy-app.sh`，它不安装、不升级任何软件包，只做建库建表、生成 `.env`、`npm ci`、systemd 守护、nginx 反代与健康检查（幂等，重跑复用已有数据库密码）：
+
+```bash
+sudo bash deploy/deploy-app.sh --domain game.example.com --db-password '已有密码'
+certbot --nginx -d game.example.com                          # 首次申请证书
+sudo bash deploy/deploy-app.sh --domain game.example.com     # 证书就绪后重跑，自动切 HTTPS/WSS
+```
+
+从本机上传代码用 `./deploy/upload.sh <用户@IP> --app-only --domain 域名`（需先授权 SSH 公钥）；也可打包后用 OrcaTerm 上传。并在微信公众平台配置 `request` / `socket` / `downloadFile` 合法域名。
 
 ## 已知限制
 
@@ -125,7 +149,7 @@ Node 服务 (:3000)
 - **游客登录**：未配置 `WX_APPID`/`WX_SECRET` 时，openid 为 `guest:<code>`，不能换真实微信 openid
 - **单机演示**：`gameScene` / `roomScene` / `resultScene` 仍保留离线演示分支（联机不可用时生效）；在线结算走对局页内面板，不进入 `resultScene`
 - **待开发**：三人血战、邀请好友面板、流局方式/去风牌开关（UI 有但未接后端）、设置页协议/实名/注销/反馈；`gangSettle`（杠即时分）前端尚未订阅
-- **部署**：热数据主存于进程内 Map，仅适合单实例；Redis 只做镜像与重启恢复；CORS 为开发配置，上线需收紧
+- **部署**：热数据主存于进程内 Map，仅适合单实例；Redis 只做镜像与重启恢复；CORS 默认 `*` 便于浏览器预览，生产可用 `CORS_ORIGINS` 收紧
 - **审计**：日志接口需登录且仅能查本人 / 本人参与房间的记录，暂无管理员后台
 
 详细接口与字段见 `backend/README.md`，表结构见 `database/README.md`，前端调试参数见 `frontend/README.md`。

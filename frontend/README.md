@@ -9,16 +9,20 @@
 | 微信开发者工具 | 导入本目录（`project.config.json` 已配置 `compileType: game`、AppID、`urlCheck:false`）→ 勾选「不校验合法域名」→ 编译 |
 | 浏览器预览 | 先启动后端（`:3000`），再 `cd frontend && node tools/dev-server.js`，打开 `http://localhost:8790/preview/index.html` |
 
-预览页 `preview/index.html` 用 `window.wx` shim 模拟小游戏 API：`wx.request` 真实转发到 `localhost:3000`，`wx.connectSocket` 真实连 `ws://localhost:3000/ws`，其余为浏览器适配（触摸、存储、Toast、剪贴板、`createImage`、分享等）。**它不是数据源 mock**，联机走真实后端。
+预览页 `preview/index.html` 用 `window.wx` shim 模拟小游戏 API：`wx.request` / `wx.connectSocket` 真实连接后端，其余为浏览器适配（触摸、存储、Toast、剪贴板、`createImage`、分享等）。**它不是数据源 mock**，联机走真实后端；加 `?env=prod` 可让预览页连生产 https/wss。
 
-后端地址写在 `js/net/config.js`：
+## 开发 / 生产两套环境
 
-```js
-API_BASE = 'http://localhost:3000'
-WS_URL   = 'ws://localhost:3000/ws'
-```
+地址定义在 `js/net/env.js`，业务代码仍从 `js/net/config.js` 取 `API_BASE` / `WS_URL`：
 
-真机 / 上线前须替换为已备案的 https / wss 域名，并在小程序后台配置合法域名。
+| 环境 | API_BASE | WS_URL |
+|---|---|---|
+| DEV（开发者工具、浏览器预览） | `http://localhost:3000` | `ws://localhost:3000/ws` |
+| PROD（体验版 / 正式版） | `https://<PROD_DOMAIN>` | `wss://<PROD_DOMAIN>/ws` |
+
+切换规则（`ENV_OVERRIDE='auto'` 时）：启动参数 `?env=dev|prod` > 微信 `envVersion`（`develop` → DEV，`trial` / `release` → PROD）> 默认 DEV。把 `ENV_OVERRIDE` 改成 `'prod'` 可在开发者工具里连生产服务器联调。
+
+部署前把 `js/net/env.js` 顶部的 `PROD_DOMAIN` 改成已备案域名，并在微信公众平台配置 `request` / `socket` / `downloadFile`（微信头像 CDN）合法域名；开发者工具本地联调仍需勾选「不校验合法域名」。
 
 ## 目录结构
 

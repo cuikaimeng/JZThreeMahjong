@@ -194,7 +194,15 @@
     },
     clearStorageSync() { localStorage.clear(); },
     vibrateShort() {},
-    getAccountInfoSync() { return { miniProgram: { version: '1.0.0' } }; },
+    getAccountInfoSync() {
+      return {
+        miniProgram: {
+          version: '1.0.0',
+          // 浏览器预览用 ?env=prod 切到生产 https/wss，默认走本地 dev
+          envVersion: urlParams.get('env') === 'prod' ? 'release' : 'develop',
+        },
+      };
+    },
     setClipboardData(opts) {
       navigator.clipboard && navigator.clipboard.writeText(opts.data).catch(() => {});
       opts.success && opts.success();

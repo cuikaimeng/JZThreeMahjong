@@ -36,3 +36,6 @@ export const WX = {
   appid: process.env.WX_APPID || '',
   secret: process.env.WX_SECRET || '',
 };
+
+// 允许的跨域来源（逗号分隔）；开发默认 '*'，生产可收紧为具体域名
+export const CORS_ORIGINS = process.env.CORS_ORIGINS || '*';

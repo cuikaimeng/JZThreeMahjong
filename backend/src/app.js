@@ -4,13 +4,24 @@ import userRoutes from './routes/users.js';
 import historyRoutes from './routes/history.js';
 import logsRoutes from './routes/logs.js';
 import roomRoutes from './routes/rooms.js';
+import { CORS_ORIGINS } from './config.js';
 
 const app = express();
+// nginx 反代后取 X-Forwarded-For 中的真实客户端 IP（登录日志用）
+app.set('trust proxy', 1);
 app.use(express.json());
 
-// 简易跨域（本地前端调试）
+// 跨域：开发默认 '*'；生产用 CORS_ORIGINS 指定白名单。
+// 微信小游戏 wx.request 不受 CORS 限制，这里主要影响浏览器预览页面。
+const corsAllowed = CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean);
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.get('origin');
+  if (corsAllowed.includes('*')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (origin && corsAllowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);

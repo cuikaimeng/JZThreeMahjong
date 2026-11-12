@@ -27,7 +27,7 @@
   "compileType": "game",
   "libVersion": "latest",
   "appid": "wx4ad4e18489ebcb28",
-  "projectname": "quickstart",
+  "projectname": "三人扣点门板屋",
   "condition": {
     "search": {
       "current": -1,
@@ -48,7 +48,12 @@
   },
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "preview" },
+      { "type": "folder", "value": "tools" },
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": "project.private.config.json" }
+    ],
     "include": []
   },
   "isGameTourist": false,

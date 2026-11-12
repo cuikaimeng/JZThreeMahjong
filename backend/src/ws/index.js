@@ -20,7 +20,8 @@ const userConns = new Map(); // userId → ws（同用户多端取最新）
 
 export function attachWebSocket(httpServer) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    ws.clientIp = clientIp(req, ws);
     conns.add(ws);
     ws.isAlive = true;
     ws.on('pong', () => (ws.isAlive = true));
@@ -61,8 +62,17 @@ function sanitizeLogData(type, data) {
   return out;
 }
 
+/** 反代后优先取 nginx 写入的 X-Real-IP / X-Forwarded-For，否则用 socket 地址 */
+function clientIp(req, ws) {
+  const h = (req && req.headers) || {};
+  const real = h['x-real-ip'];
+  const chain = String(h['x-forwarded-for'] || '').split(',')[0].trim();
+  const remote = (ws && ws._socket && ws._socket.remoteAddress) || '';
+  return String(real || chain || remote).slice(0, 64);
+}
+
 function wsIp(ws) {
-  return String((ws._socket && ws._socket.remoteAddress) || '').slice(0, 64);
+  return String(ws.clientIp || (ws._socket && ws._socket.remoteAddress) || '').slice(0, 64);
 }
 
 async function onMessage(ws, raw) {

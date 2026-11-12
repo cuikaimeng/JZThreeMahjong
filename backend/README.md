@@ -21,9 +21,10 @@ npm start        # 或 npm run dev（--watch 热重载）
 | `PG_HOST/PORT/USER/PASSWORD/DATABASE` | `localhost/5432/postgres/postgres/mahjong` | PostgreSQL；不可用则内存降级 |
 | `REDIS_HOST/PORT` | `localhost/6379` | Redis；不可用则内存降级 |
 | `WX_APPID` / `WX_SECRET` | 空 | 配置后 `/api/auth/login` 用 code 换真实 openid；留空走游客登录 |
+| `CORS_ORIGINS` | `*` | 跨域白名单（逗号分隔）；生产可收紧为具体来源 |
 | `TOKEN_TTL_DAYS` | `7` | Bearer token 有效期 |
 
-降级时服务照常运行，但**重启后数据丢失**，仅用于开发。CORS 当前为本地调试配置（`Allow-Origin: *`，放行 GET/POST/PUT/PATCH/DELETE/OPTIONS），上线需收紧。
+开发环境用 `backend/.env.example`，生产用 `deploy/env.production.example`（或由 `deploy/server-setup.sh` 自动生成）。降级时服务照常运行，但**重启后数据丢失**，仅用于开发。
 
 ## 目录
 
@@ -125,5 +126,7 @@ backend/src/
 
 - 热数据主存进程内 Map，**仅适合单实例**；Redis 只做房间镜像与重启恢复（会话键 `session:{token}` 带 TTL）
 - token 存 Redis / 内存，重启或降级后失效，客户端会重新登录
-- 未配置微信 AppID/Secret 时始终是游客 openid；上线前配置并在前端换合法域名
-- CORS、无管理员后台、日志仅本人可查，均为当前开发态设计
+- 未配置微信 AppID/Secret 时始终是游客 openid；上线前配置，并在微信公众平台配置 `request` / `socket` / `downloadFile` 合法域名
+- nginx 反代 https/wss：后端已开 `app.set('trust proxy', 1)`，WS 握手读 `X-Real-IP` / `X-Forwarded-For`，登录日志记录真实客户端 IP；配置见 `deploy/nginx-wss.conf.example`
+- 生产用 `CORS_ORIGINS` 收紧跨域来源，`backend/.env` 权限保持 600
+- 无管理员后台、日志仅本人可查，为当前设计

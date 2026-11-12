@@ -1,9 +1,18 @@
 /**
- * 网络配置
+ * 网络配置（兼容入口，业务代码继续从这里取 API_BASE / WS_URL）
  *
- * 本地联调：后端 `cd backend && npm start`（默认 3000 端口）
- * - 微信开发者工具：需在「详情 → 本地设置」勾选「不校验合法域名」
- * - 真机调试 / 上线：替换为已备案的 https / wss 域名
+ * 实际地址由 ./env.js 按运行环境选择：
+ *   DEV  ：http://localhost:3000 + ws://localhost:3000/ws
+ *   PROD ：https://<PROD_DOMAIN> + wss://<PROD_DOMAIN>/ws
+ *
+ * 部署时只需修改 env.js 顶部的 PROD_DOMAIN，并在微信公众平台配置
+ * request / socket / downloadFile 合法域名。开发者工具本地联调仍需
+ * 勾选「不校验合法域名」。
  */
-export const API_BASE = 'http://localhost:3000';
-export const WS_URL = 'ws://localhost:3000/ws';
+import { ENDPOINTS } from './env.js';
+
+export const API_BASE = ENDPOINTS.API_BASE;
+export const WS_URL = ENDPOINTS.WS_URL;
+
+export { PROD_DOMAIN, DEV_ENDPOINTS, PROD_ENDPOINTS, CURRENT_ENV, ENV_OVERRIDE } from './env.js';
+
