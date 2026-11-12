@@ -17,3 +17,6 @@ frontend/project.private.config.json
 # 日志、部署包与临时文件
 *.log
 *.tar.gz
+
+# 根目录 images（提审截图等本地素材，仅忽略根目录，不影响 frontend/assets/images）
+/images/

@@ -253,7 +253,7 @@ export default class LobbyScene {
     g.addColorStop(0, '#fff8e6');
     g.addColorStop(0.62, '#e8c37a');
     g.addColorStop(1, '#c19a52');
-    spacedText(ctx, '三人扣点门板屋', W / 2, this.titleBase, {
+    spacedText(ctx, '三人门板屋', W / 2, this.titleBase, {
       font: titleFont,
       fill: g,
       spacing: 7.5 * k,
