@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三人麻将 · 大厅预览</title>
+<style>
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:radial-gradient(900px 500px at 20% -10%, #14313b 0%, transparent 60%), #0a0f12;
+    display:flex;align-items:center;justify-content:center;
+    font-family:"PingFang SC",sans-serif;
+  }
+  #game{
+    width:375px;height:812px;border-radius:24px;
+    box-shadow:0 40px 80px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.08);
+    touch-action:none;
+    transition:width .2s,height .2s;
+  }
+  #orient{
+    position:fixed;left:12px;top:12px;z-index:9;
+    background:rgba(255,255,255,.08);color:#cfe0d9;border:1px solid rgba(255,255,255,.15);
+    border-radius:999px;padding:7px 14px;font-size:12px;cursor:pointer;
+  }
+  #toast{
+    position:fixed;left:50%;bottom:120px;transform:translateX(-50%);
+    background:rgba(0,0,0,.8);color:#fff;font-size:13px;
+    padding:9px 18px;border-radius:999px;opacity:0;transition:opacity .25s;
+    pointer-events:none;white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="toast"></div>
+<button id="orient">切换横屏</button>
+<script>
+  // ---- 微信小游戏 wx API 浏览器 shim ----
+  window.GameGlobal = window;
+  // 浏览器预览的资源根（小游戏为包内相对路径 assets/images/）
+  window.__ASSET_BASE = '../assets/images/';
+  const canvasEl = document.getElementById('game');
+  const toastEl = document.getElementById('toast');
+  const orientBtn = document.getElementById('orient');
+  let toastTimer = null;
+  let mouseDown = false;
+
+  // ---- 微信账号 / 分享 实测模拟（URL 参数驱动） ----
+  const urlParams = new URLSearchParams(location.search);
+  const MOCK_PROFILE = {
+    nickName: urlParams.get('wxNick') || '门板屋牌友',
+    avatarUrl: urlParams.get('wxAvatar') || 'http://localhost:8790/assets/images/beimian.png',
+    gender: 1, country: 'CN', province: '广东', city: '深圳',
+  };
+  const wxAuthorized = urlParams.get('wxAuthorized') === '1';
+  const profileMode = urlParams.get('wxProfileMode') || 'profile';
+  const showCbs = [];
+  let shareCb = null;
+  window.__wxTest = {
+    lastShare: null,
+    profileCalls: 0,
+    getShare: () => (shareCb ? shareCb() : null),
+    fireShow: (query) => showCbs.forEach((cb) => cb({ query })),
+    tapProfileButton: () => {
+      const b = document.querySelector('#wx-profile-btn');
+      if (b) b.click();
+    },
+  };
+
+  // 模拟屏幕尺寸（横竖屏切换）
+  const screenState = { w: 375, h: 812 };
+  const resizeCbs = [];
+  window.__setOrientation = (w, h) => {
+    screenState.w = w;
+    screenState.h = h;
+    canvasEl.style.width = w + 'px';
+    canvasEl.style.height = h + 'px';
+    resizeCbs.forEach((cb) => cb());
+  };
+  orientBtn.addEventListener('click', () => {
+    const land = screenState.w > screenState.h;
+    if (land) {
+      window.__setOrientation(375, 812);
+      orientBtn.textContent = '切换横屏';
+    } else {
+      window.__setOrientation(812, 375);
+      orientBtn.textContent = '切换竖屏';
+    }
+  });
+
+  window.canvas = canvasEl;
+  window.wx = {
+    createCanvas: () => canvasEl,
+    createImage: () => new Image(),
+    getWindowInfo: () => ({
+      screenWidth: screenState.w,
+      screenHeight: screenState.h,
+      pixelRatio: 2,
+      statusBarHeight: screenState.w > screenState.h ? 0 : 44,
+      safeArea: { bottom: screenState.h - (screenState.w > screenState.h ? 0 : 34) },
+    }),
+    onWindowResize(cb) {
+      resizeCbs.push(cb);
+    },
+    // 将浏览器事件坐标换算为画布内逻辑坐标（画布非全屏时 clientX/Y 需减去画布偏移）
+    toGameXY(e) {
+      const r = canvasEl.getBoundingClientRect();
+      return { clientX: e.clientX - r.left, clientY: e.clientY - r.top };
+    },
+    onTouchStart(cb) {
+      canvasEl.addEventListener('mousedown', (e) => {
+        mouseDown = true;
+        cb({ touches: [this.toGameXY(e)] });
+      });
+      canvasEl.addEventListener('touchstart', (e) => cb(e), { passive: true });
+    },
+    onTouchMove(cb) {
+      canvasEl.addEventListener('mousemove', (e) => {
+        if (!mouseDown) return;
+        cb({ touches: [this.toGameXY(e)] });
+      });
+      canvasEl.addEventListener('touchmove', (e) => cb(e), { passive: true });
+    },
+    onTouchEnd(cb) {
+      canvasEl.addEventListener('mouseup', (e) => {
+        mouseDown = false;
+        cb({ changedTouches: [this.toGameXY(e)] });
+      });
+      canvasEl.addEventListener('touchend', (e) => cb(e), { passive: true });
+    },
+    getUserInfo(opts) {
+      setTimeout(() => opts.success && opts.success({ userInfo: MOCK_PROFILE }), 0);
+    },
+    login(opts) {
+      setTimeout(() => opts.success && opts.success({ code: 'mock_wx_code_' + Date.now() }), 0);
+    },
+    getSetting(opts) {
+      setTimeout(() => opts.success && opts.success({ authSetting: { 'scope.userInfo': wxAuthorized } }), 0);
+    },
+    getUserProfile(opts) {
+      window.__wxTest.profileCalls++;
+      if (profileMode === 'button') {
+        setTimeout(() => opts.fail && opts.fail({ errMsg: 'mock: 走原生按钮' }), 0);
+        return;
+      }
+      setTimeout(() => opts.success && opts.success({ userInfo: MOCK_PROFILE }), 0);
+    },
+    createUserInfoButton(cfg) {
+      const st = cfg.style || {};
+      const b = document.createElement('button');
+      b.id = 'wx-profile-btn';
+      b.textContent = cfg.text || '授权微信头像昵称';
+      b.style.cssText = `position:fixed;z-index:99;left:${st.left || 0}px;top:${st.top || 0}px;` +
+        `width:${st.width || 220}px;height:${st.height || 44}px;border:0;border-radius:22px;` +
+        `background:#e8c37a;color:#3a2a0c;font-size:14px;cursor:pointer;`;
+      document.body.appendChild(b);
+      const cbs = [];
+      b.addEventListener('click', () => {
+        window.__wxTest.profileCalls++;
+        cbs.forEach((cb) => cb({ userInfo: MOCK_PROFILE }));
+      });
+      return {
+        onTap: (cb) => cbs.push(cb),
+        hide: () => { b.style.display = 'none'; },
+        destroy: () => b.remove(),
+      };
+    },
+    // 小游戏分享（右上角转发 / 主动分享 / 好友点击后的启动参数）
+    showShareMenu() {},
+    onShareAppMessage(cb) { shareCb = cb; },
+    shareAppMessage(opts) {
+      window.__wxTest.lastShare = opts;
+      wx.showToast({ title: '模拟分享 · ' + (opts.query || '') });
+      opts.success && opts.success();
+    },
+    getLaunchOptionsSync() {
+      return { query: location.search.replace(/^\?/, ''), scene: 1001 };
+    },
+    onShow(cb) { showCbs.push(cb); },
+    showToast(opts) {
+      toastEl.textContent = opts.title || '';
+      toastEl.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, 1500);
+    },
+    // 设置页所需 mock：本地存储 / 震动 / 版本信息
+    getStorageSync(key) {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return '';
+      try { return JSON.parse(raw); } catch (e) { return raw; }
+    },
+    setStorageSync(key, value) {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    },
+    clearStorageSync() { localStorage.clear(); },
+    vibrateShort() {},
+    getAccountInfoSync() { return { miniProgram: { version: '1.0.0' } }; },
+    setClipboardData(opts) {
+      navigator.clipboard && navigator.clipboard.writeText(opts.data).catch(() => {});
+      opts.success && opts.success();
+    },
+    showModal(opts) {
+      const ok = window.confirm(`${opts.title || ''}\n\n${opts.content || ''}`);
+      opts.success && opts.success({ confirm: ok, cancel: !ok });
+    },
+    // 联调：REST 请求
+    request(opts) {
+      const method = (opts.method || 'GET').toUpperCase();
+      let url = opts.url;
+      const init = { method, headers: opts.header || {} };
+      if (method === 'GET') {
+        if (opts.data && Object.keys(opts.data).length) {
+          url += (url.includes('?') ? '&' : '?') + new URLSearchParams(opts.data).toString();
+        }
+      } else {
+        init.body = JSON.stringify(opts.data || {});
+      }
+      fetch(url, init)
+        .then(async (res) => {
+          const text = await res.text();
+          let data = text;
+          try { data = JSON.parse(text); } catch (e) { /* 非 JSON */ }
+          opts.success && opts.success({ statusCode: res.status, data });
+        })
+        .catch((e) => opts.fail && opts.fail({ errMsg: String(e && e.message ? e.message : e) }));
+    },
+    // 联调：WebSocket（接口与小程序 SocketTask 对齐）
+    connectSocket(opts) {
+      const ws = new WebSocket(opts.url);
+      const openCbs = [];
+      const msgCbs = [];
+      const closeCbs = [];
+      const errCbs = [];
+      ws.onopen = () => openCbs.forEach((cb) => cb({}));
+      ws.onmessage = (e) => msgCbs.forEach((cb) => cb({ data: e.data }));
+      ws.onclose = (e) => closeCbs.forEach((cb) => cb(e));
+      ws.onerror = (e) => errCbs.forEach((cb) => cb(e));
+      return {
+        send(o) { if (ws.readyState === 1) ws.send(o.data); },
+        close() { ws.close(); },
+        onOpen(cb) { openCbs.push(cb); },
+        onMessage(cb) { msgCbs.push(cb); },
+        onClose(cb) { closeCbs.push(cb); },
+        onError(cb) { errCbs.push(cb); },
+        get readyState() { return ws.readyState; },
+      };
+    },
+  };
+</script>
+<script type="module" src="../game.js"></script>
+</body>
+</html>

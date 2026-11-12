@@ -1,0 +1,20 @@
+{
+  "name": "jz-three-mahjong-backend",
+  "version": "0.1.0",
+  "description": "三人扣点麻将后端：Express REST + WebSocket 实时联机",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
